@@ -1,3 +1,5 @@
+import time
+
 from django.contrib.auth import get_user_model
 from django import forms
 from django.test import Client, TestCase
@@ -6,6 +8,8 @@ from django.urls import reverse
 from ..models import Post, Group
 
 User = get_user_model()
+
+NUMBER_OF_POSTS: int = 2
 
 
 class PostPagesTests(TestCase):
@@ -59,14 +63,15 @@ class ContextTests(TestCase):
             slug='test_slug',
             description='Тестовое описание'
         )
-        cls.post1 = Post.objects.create(
-            author=cls.user1,
-            text='Test post 1'
-        )
         cls.post2 = Post.objects.create(
             author=cls.user2,
             text='Test post 2',
             group=cls.group
+        )
+        time.sleep(1)
+        cls.post1 = Post.objects.create(
+            author=cls.user1,
+            text='Test post 1'
         )
 
     def setUp(self):
@@ -76,7 +81,7 @@ class ContextTests(TestCase):
     def test_index_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом"""
         response = self.authorized_client.get(reverse('posts:index'))
-        self.assertEqual(len(response.context['page_obj']), 2)
+        self.assertEqual(len(response.context['page_obj']), NUMBER_OF_POSTS)
 
     def test_group_list_page_show_correct_context(self):
         """Шаблон group_list сформирован с правильным контекстом"""
@@ -104,7 +109,7 @@ class ContextTests(TestCase):
         ))
         post_text0 = {response.context['post'].text: 'Test post 1',
                       response.context['post'].author: self.user1,
-                      response.context['post'].id: 1}
+                      response.context['post'].id: 2}
         for value, expected in post_text0.items():
             self.assertEqual(value, expected)
 
@@ -142,7 +147,6 @@ class ContextTests(TestCase):
         index = response_index.context['post'].text
         group = response_group.context['post'].group
         profile = response_profile.context['post'].author
-        print(self.post2.text)
         self.assertEqual(self.post2.text, index)
         self.assertEqual(self.post2.group, group)
         self.assertEqual(self.post2.author, profile)
