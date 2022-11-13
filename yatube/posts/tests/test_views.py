@@ -30,18 +30,18 @@ class PostPagesTests(TestCase):
     def test_pages_uses_correct_template(self):
         """URL адрес использует свой шаблон"""
         templates_pages_name = {
-            'posts/index.html': reverse('posts:index'),
-            'posts/group_list.html': reverse(
-                'posts:group_list', kwargs={'slug': 'test-slug'}),
-            'posts/profile.html': reverse(
-                'posts:profile', kwargs={'username': 'HasNoName'}),
-            'posts/post_detail.html': (
-                reverse('posts:post_detail', kwargs={'pk': 1})),
-            'posts/create_post.html': reverse('posts:post_create'),
-            'posts/create_post.html': reverse(
-                'posts:post_edit', kwargs={'post_id': 1})
+            reverse('posts:index'): 'posts/index.html',
+            reverse('posts:group_list',
+                    kwargs={'slug': 'test-slug'}): 'posts/group_list.html',
+            reverse('posts:profile',
+                    kwargs={'username': 'HasNoName'}): 'posts/profile.html',
+            reverse('posts:post_detail',
+                    kwargs={'pk': 1}): 'posts/post_detail.html',
+            reverse('posts:post_create'): 'posts/create_post.html',
+            reverse('posts:post_edit',
+                    kwargs={'post_id': 1}): 'posts/create_post.html'
         }
-        for template, reverse_name in templates_pages_name.items():
+        for reverse_name, template in templates_pages_name.items():
             with self.subTest(reverse_name=reverse_name):
                 response = self.authorized_client.get(reverse_name)
                 self.assertTemplateUsed(response, template)
