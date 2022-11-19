@@ -1,15 +1,10 @@
-import time
-
-from django.contrib.auth import get_user_model
 from django import forms
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Post, Group
+from ..models import Post, Group, User
 
-User = get_user_model()
-
-NUMBER_OF_POSTS: int = 2
+NUMBER_OF_POSTS: int = 1
 
 
 class PostPagesTests(TestCase):
@@ -63,15 +58,10 @@ class ContextTests(TestCase):
             slug='test_slug',
             description='Тестовое описание'
         )
-        cls.post2 = Post.objects.create(
-            author=cls.user2,
-            text='Test post 2',
-            group=cls.group
-        )
-        time.sleep(1)
         cls.post1 = Post.objects.create(
             author=cls.user1,
-            text='Test post 1'
+            text='Test post 1',
+            group=cls.group
         )
 
     def setUp(self):
@@ -89,7 +79,7 @@ class ContextTests(TestCase):
             'posts:group_list',
             kwargs={'slug': 'test_slug'}
         ))
-        self.assertEqual(response.context['post'].text, 'Test post 2')
+        self.assertEqual(response.context['post'].text, 'Test post 1')
         self.assertEqual(response.context['post'].group, self.group)
 
     def test_profile_page_show_correct_context(self):
@@ -107,11 +97,10 @@ class ContextTests(TestCase):
             'posts:post_detail',
             kwargs={'pk': self.post1.id}
         ))
-        post_text0 = {response.context['post'].text: 'Test post 1',
-                      response.context['post'].author: self.user1,
-                      response.context['post'].id: 2}
-        for value, expected in post_text0.items():
-            self.assertEqual(value, expected)
+        self.assertEqual(response.context['post'].text, 'Test post 1')
+        self.assertEqual(response.context['post'].author, self.user1)
+        self.assertEqual(response.context['post'].id, 1)
+
 
     def test_post_create_show_correct_context(self):
         """Шаблон post_create сформирован с правильным контекстом"""
@@ -137,19 +126,24 @@ class ContextTests(TestCase):
     def test_post_added_correctly(self):
         """Пост при создании добавлен корректно"""
         response_index = self.authorized_client.get(
-            reverse('posts:index'))
+            reverse('posts:index')
+        )
         response_group = self.authorized_client.get(
             reverse('posts:group_list',
-                    kwargs={'slug': 'test_slug'}))
+                    kwargs={'slug': 'test_slug'}
+                    )
+        )
         response_profile = self.authorized_client.get(
             reverse('posts:profile',
-                    kwargs={'username': 'user2'}))
+                    kwargs={'username': 'user1'}
+                    )
+        )
         index = response_index.context['post'].text
         group = response_group.context['post'].group
         profile = response_profile.context['post'].author
-        self.assertEqual(self.post2.text, index)
-        self.assertEqual(self.post2.group, group)
-        self.assertEqual(self.post2.author, profile)
+        self.assertEqual(self.post1.text, index)
+        self.assertEqual(self.post1.group, group)
+        self.assertEqual(self.post1.author, profile)
 
 
 class PaginatorViewsTest(TestCase):
@@ -173,7 +167,8 @@ class PaginatorViewsTest(TestCase):
         Post.objects.bulk_create(post_list)
 
     def test_correct_records_contains_on_page(self):
-        postfixurl_posts = [('', 10), ('?page=2', 3)]
+        """Проверка количества постов на первой и второй странице"""
+        postfixurl_posts = [('', 10), ('2', 3)]
         templates_pages_name = [
             reverse('posts:index'),
             reverse('posts:group_list', kwargs={'slug': 'test-slug'}),
@@ -183,5 +178,5 @@ class PaginatorViewsTest(TestCase):
         for postfixurl, posts in postfixurl_posts:
             for page in templates_pages_name:
                 with self.subTest(page=page):
-                    response = self.authorized_client.get(page + postfixurl)
-                    self.assertEqual(len(response.context['page_obj']), posts)
+                    response_first_page = self.authorized_client.get(page, {'page': postfixurl})
+                    self.assertEqual(len(response_first_page.context['page_obj']), posts)

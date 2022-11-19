@@ -63,7 +63,10 @@ def post_detail(request, pk):
 @login_required
 def post_create(request):
     user = get_object_or_404(User, id=request.user.pk)
-    form = PostForm(request.POST or None)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None
+    )
 
     if form.is_valid():
         new_post = form.save(commit=False)
@@ -77,12 +80,14 @@ def post_create(request):
 
 def post_edit(request, post_id):
     post = get_object_or_404(Post, id=post_id)
-
     if request.user != post.author:
         return redirect(reverse('posts:post_detail', args=[post_id]))
-
     is_edit = True
-    form = PostForm(request.POST or None, instance=post)
+    form = PostForm(
+        request.POST or None,
+        files=request.FILES or None,
+        instance=post
+    )
     if form.is_valid():
         form.save()
         return redirect(reverse('posts:post_detail', args=[post_id]))
