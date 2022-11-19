@@ -30,7 +30,7 @@ class PostFormTest(TestCase):
         self.authorized_client.force_login(self.user)
 
     def test_create_post(self):
-        """Проверка на создание нового поста и его редактирование"""
+        """Проверка на создание нового поста"""
         self.authorized_client.post(
             reverse('posts:post_create'),
             data=self.form_data,

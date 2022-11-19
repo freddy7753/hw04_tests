@@ -101,7 +101,6 @@ class ContextTests(TestCase):
         self.assertEqual(response.context['post'].author, self.user1)
         self.assertEqual(response.context['post'].id, 1)
 
-
     def test_post_create_show_correct_context(self):
         """Шаблон post_create сформирован с правильным контекстом"""
         response = self.authorized_client.get(reverse('posts:post_create'))
@@ -178,5 +177,9 @@ class PaginatorViewsTest(TestCase):
         for postfixurl, posts in postfixurl_posts:
             for page in templates_pages_name:
                 with self.subTest(page=page):
-                    response_first_page = self.authorized_client.get(page, {'page': postfixurl})
-                    self.assertEqual(len(response_first_page.context['page_obj']), posts)
+                    response_first_page = self.authorized_client.get(
+                        page, {'page': postfixurl}
+                    )
+                    self.assertEqual(len(
+                        response_first_page.context['page_obj']), posts
+                    )
