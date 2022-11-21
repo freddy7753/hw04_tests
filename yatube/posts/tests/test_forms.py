@@ -14,14 +14,9 @@ class PostFormTest(TestCase):
         cls.user = User.objects.create_user(username='user')
         cls.form = PostForm()
         cls.posts_count = Post.objects.count()
-        cls.group = Group.objects.create(
-            title='Тестовая группа',
-            slug='test_slug',
-            description='Тестовое описание'
-        )
         cls.form_data = {
             'text': 'Test post',
-            'group': cls.group.id
+            'group': ''
         }
 
     def setUp(self):
@@ -36,10 +31,18 @@ class PostFormTest(TestCase):
             data=self.form_data,
             follow=True
         )
+        post_id = Post.objects.order_by('-pub_date')[0].id
+        response = self.authorized_client.get(reverse(
+            'posts:post_detail',
+            kwargs={'pk': post_id}
+        ))
         self.assertEqual(
             Post.objects.count(),
             self.posts_count + ONE_POST
         )
+        self.assertEqual(response.context['post'].text, 'Test post')
+        self.assertEqual(response.context['post'].group, None)
+        self.assertEqual(response.context['post'].author, self.user)
 
     def test_create_post_is_forbidden_for_guest_client(self):
         """Незарегистрированный пользователь не может создать пост"""
@@ -52,15 +55,26 @@ class PostFormTest(TestCase):
 
     def test_for_redact_post(self):
         """Тест на редактирование поста"""
-        Post.objects.create(
+        self.group = Group.objects.create(
+            title='Тестовая группа',
+            slug='test_slug',
+            description='Тестовое описание'
+        )
+        self.new_post = Post.objects.create(
             text='Test',
             group=self.group,
             author=self.user
         )
-        post_id = Post.objects.filter(text='Test')[0].id
+        self.authorized_client.post(
+            reverse(
+                'posts:post_edit',
+                kwargs={'post_id': self.new_post.id}
+            ),
+            data=self.form_data,
+            follow=True
+        )
+        post_id = Post.objects.order_by('-pub_date')[0].id
         post = Post.objects.get(pk=post_id)
-        post.text = 'Test POST'
-        post.save()
-        self.assertEqual(post.text, 'Test POST')
-        self.assertEqual(post.group, self.group)
+        self.assertEqual(post.text, 'Test post')
+        self.assertEqual(post.group, None)
         self.assertEqual(post.author, self.user)

@@ -21,16 +21,16 @@ class PostURLTests(TestCase):
         )
         cls.templates_url_names = {
             '/': 'posts/index.html',
-            '/group/test-slug/': 'posts/group_list.html',
-            '/profile/HasNoName/': 'posts/profile.html',
-            '/posts/1/': 'posts/post_detail.html',
+            f'/group/{cls.group.slug}/': 'posts/group_list.html',
+            f'/profile/{cls.user}/': 'posts/profile.html',
+            f'/posts/{cls.post.id}/': 'posts/post_detail.html',
             '/create/': 'posts/create_post.html',
-            '/posts/1/edit/': 'posts/create_post.html'
+            f'/posts/{cls.post.id}/edit/': 'posts/create_post.html'
         }
         cls.urls_for_guest_client = [
-            '/', '/group/test-slug/',
-            '/profile/HasNoName/',
-            '/posts/1/'
+            '/', f'/group/{cls.group.slug}/',
+            f'/profile/{cls.user}/',
+            f'/posts/{cls.post.id}/'
         ]
 
     def setUp(self):
@@ -52,15 +52,14 @@ class PostURLTests(TestCase):
                 response = self.guest_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
-    def test_post_create_for_guest_client(self):
-        """Проверяем страницу создания поста на redirect"""
-        response = self.guest_client.get('/create/')
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
-
-    def test_post_edit_redirect_for_guest_client(self):
-        """Проверяем redirect для неавторизованного клиента"""
-        response = self.guest_client.get('/posts/1/edit/')
-        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+    def test_post_create_edit_for_guest_client(self):
+        """Проверяем страницу создания и
+         редактирования поста на redirect"""
+        for i in (4, 5):
+            address = list(self.templates_url_names.keys())[i]
+            with self.subTest(address=address):
+                response = self.guest_client.get(address)
+                self.assertEqual(response.status_code, HTTPStatus.FOUND)
 
     def test_for_unexpected_page(self):
         """Проверяем на несуществующую страницу"""
@@ -74,11 +73,3 @@ class PostURLTests(TestCase):
             with self.subTest(address=address):
                 response = self.authorized_client.get(address)
                 self.assertTemplateUsed(response, template)
-
-        for address in self.urls_for_guest_client:
-            """Для не авторизованного пользователя"""
-            with self.subTest(address=address):
-                response = self.guest_client.get(address)
-                self.assertTemplateUsed(
-                    response, self.templates_url_names[address]
-                )
