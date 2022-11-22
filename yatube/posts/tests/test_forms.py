@@ -1,16 +1,16 @@
-import shutil
+# import shutil
 import tempfile
 
 from django.conf import settings
-from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, Client, override_settings
+# from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, Client
 from django.urls import reverse
 
 from ..forms import PostForm
-from ..models import Group, Post, User, Comment
+from ..models import Group, Post, User
 
 ONE_POST: int = 1
-TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
+# TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
 
 class PostFormTest(TestCase):
@@ -87,9 +87,6 @@ class PostFormTest(TestCase):
         self.assertEqual(post.text, self.form_data['text'])
         self.assertEqual(post.group, None)
         self.assertEqual(post.author, self.user)
-
-
-
 
 #     def test_comment_post_is_forbidden_for_guest_client(self):
 #         """Не авторизованный пользователь
