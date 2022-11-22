@@ -1,14 +1,16 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.urls import reverse
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import cache_page
 
-from .forms import PostForm
-from .models import Post, Group, User
+from .forms import PostForm, CommentForm
+from .models import Post, Group, User, Comment
 from .utils import get_paginator_obj
 
 TITLE_COUNT_SYMBOL: int = 30
 
 
+# @cache_page(20, key_prefix='image_page')
 def index(request):
     post_list = Post.objects.select_related('author', 'group')
     page_obj = get_paginator_obj(post_list, request)
@@ -51,11 +53,15 @@ def post_detail(request, pk):
     author_post = Post.objects.select_related('author')
     post_count = author_post.count()
     title = post.text[:TITLE_COUNT_SYMBOL]
+    comments = Comment.objects.filter(post=post)
+    form = CommentForm(request.POST or None)
     context = {
         'title': title,
         'post': post,
         'post_count': post_count,
         'author_post': author_post,
+        'form': form,
+        'comments': comments
     }
     return render(request, 'posts/post_detail.html', context)
 
@@ -97,3 +103,15 @@ def post_edit(request, post_id):
         'form': form
     }
     return render(request, 'posts/create_post.html', context)
+
+
+@login_required
+def add_comment(request, post_id):
+    post = get_object_or_404(Post, pk=post_id)
+    form = CommentForm(request.POST or None)
+    if form.is_valid():
+        comment = form.save(commit=False)
+        comment.author = request.user
+        comment.post = post
+        comment.save()
+    return redirect('posts:post_detail', pk=post_id)

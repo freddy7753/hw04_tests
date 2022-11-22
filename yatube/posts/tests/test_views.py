@@ -23,25 +23,30 @@ class PostPagesTests(TestCase):
             group=cls.group
 
         )
+        cls.index = reverse('posts:index')
+        cls.group_path = reverse(
+            'posts:group_list', kwargs={'slug': 'test_slug'}
+        )
+        cls.profile = reverse(
+            'posts:profile', kwargs={'username': 'HasNoName'}
+        )
+        cls.detail = reverse(
+            'posts:post_detail', kwargs={'pk': NUMBER_OF_POSTS}
+        )
+        cls.create = reverse('posts:post_create')
+        cls.edit = reverse(
+            'posts:post_edit', kwargs={'post_id': NUMBER_OF_POSTS}
+        )
+
         cls.templates_pages_name = {
-            reverse(
-                'posts:index'
-            ): 'posts/index.html',
-            reverse(
-                'posts:group_list', kwargs={'slug': 'test_slug'}
-            ): 'posts/group_list.html',
-            reverse(
-                'posts:profile', kwargs={'username': 'HasNoName'}
-            ): 'posts/profile.html',
-            reverse(
-                'posts:post_detail', kwargs={'pk': 1}
-            ): 'posts/post_detail.html',
-            reverse(
-                'posts:post_create'
-            ): 'posts/create_post.html',
-            reverse(
-                'posts:post_edit', kwargs={'post_id': 1}
-            ): 'posts/create_post.html'
+            cls.index: 'posts/index.html',
+            cls.group_path: 'posts/group_list.html',
+            cls.profile: 'posts/profile.html',
+            cls.detail: 'posts/post_detail.html'
+        }
+        cls.templates_pages_name_2 = {
+            cls.create: 'posts/create_post.html',
+            cls.edit: 'posts/create_post.html'
         }
 
     def setUp(self):
@@ -50,51 +55,48 @@ class PostPagesTests(TestCase):
 
     def test_pages_uses_correct_template(self):
         """URL адрес использует свой шаблон"""
-        for reverse_name, template in self.templates_pages_name.items():
+        url_template = {
+            **self.templates_pages_name,
+            **self.templates_pages_name_2
+        }
+        for reverse_name, template in url_template.items():
             with self.subTest(reverse_name=reverse_name):
                 response = self.authorized_client.get(reverse_name)
                 self.assertTemplateUsed(response, template)
 
+    def test_correct_context(self):
+        """Проверка контекста на страницах сайта"""
+        for address in self.templates_pages_name:
+            with self.subTest(address=address):
+                response = self.authorized_client.get(address)
+                self.assertEqual(
+                    response.context['post'].text,
+                    self.post.text
+                )
+                self.assertEqual(
+                    response.context['post'].author,
+                    self.user
+                )
+                self.assertEqual(
+                    response.context['post'].group,
+                    self.group
+                )
+                self.assertEqual(
+                    response.context['post'].id,
+                    NUMBER_OF_POSTS
+                )
+
     def test_index_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse('posts:index'))
-        self.assertEqual(len(response.context['page_obj']), NUMBER_OF_POSTS)
-
-    def test_group_list_page_show_correct_context(self):
-        """Шаблон group_list сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse(
-            'posts:group_list',
-            kwargs={'slug': 'test_slug'}
-        ))
+        response = self.authorized_client.get(self.index)
         self.assertEqual(
-            response.context['title'],
-            f'Записи сообщества: {self.group}'
+            len(response.context['page_obj']),
+            NUMBER_OF_POSTS
         )
-        self.assertEqual(response.context['group'], self.group)
-
-    def test_profile_page_show_correct_context(self):
-        """Шаблон profile сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse(
-            'posts:profile',
-            kwargs={'username': 'HasNoName'}
-        ))
-        self.assertEqual(response.context['post'].text, 'Test post')
-        self.assertEqual(response.context['post'].group, self.group)
-        self.assertEqual(response.context['post'].author, self.user)
-
-    def test_post_detail_show_correct_context(self):
-        """Шаблон post_detail сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse(
-            'posts:post_detail',
-            kwargs={'pk': self.post.id}
-        ))
-        self.assertEqual(response.context['post'].text, 'Test post')
-        self.assertEqual(response.context['post'].author, self.user)
-        self.assertEqual(response.context['post'].id, 1)
 
     def test_post_create_show_correct_context(self):
         """Шаблон post_create сформирован с правильным контекстом"""
-        response = self.authorized_client.get(reverse('posts:post_create'))
+        response = self.authorized_client.get(self.create)
         form_fields = {
             'text': forms.CharField,
             'group': forms.ChoiceField}
@@ -115,14 +117,20 @@ class PostPagesTests(TestCase):
 
     def test_post_added_correctly(self):
         """Пост при создании добавлен корректно"""
-        for i in range(1, 3):
-            address = list(self.templates_pages_name.keys())[i]
+        for address in self.templates_pages_name:
             with self.subTest(address=address):
                 response = self.authorized_client.get(address)
                 self.assertEqual(
                     response.context['post'].text,
                     self.post.text
                 )
+
+
+NEW_POSTS: int = 13
+POSTS_ON_FIRST_PAGE: int = 10
+POSTS_ON_SECOND_PAGE: int = 3
+FIRST_PAGE: int = 1
+SECOND_PAGE: int = 2
 
 
 class PaginatorViewsTest(TestCase):
@@ -137,7 +145,7 @@ class PaginatorViewsTest(TestCase):
             slug='test-slug'
         )
         post_list = []
-        for i in range(13):
+        for i in range(NEW_POSTS):
             post_list.append(Post(
                 text=f'Тестовый текст {i}',
                 group=self.group,
@@ -147,11 +155,20 @@ class PaginatorViewsTest(TestCase):
 
     def test_correct_records_contains_on_page(self):
         """Проверка количества постов на первой и второй странице"""
-        postfixurl_posts = [(1, 10), (2, 3)]
+        postfixurl_posts = [
+            (FIRST_PAGE, POSTS_ON_FIRST_PAGE),
+            (SECOND_PAGE, POSTS_ON_SECOND_PAGE)
+        ]
         templates_pages_name = [
             reverse('posts:index'),
-            reverse('posts:group_list', kwargs={'slug': 'test-slug'}),
-            reverse('posts:profile', kwargs={'username': 'HasNoName'})
+            reverse(
+                'posts:group_list',
+                kwargs={'slug': 'test-slug'}
+            ),
+            reverse(
+                'posts:profile',
+                kwargs={'username': 'HasNoName'}
+            )
         ]
 
         for postfixurl, posts in postfixurl_posts:
