@@ -37,8 +37,11 @@ class PostURLTests(TestCase):
 
     def test_posts_urls_exists_at_desired_location(self):
         """Проверяем адреса на доступность авторизованным клиентом"""
-        for address in self.templates_url_names_public | \
-                self.templates_url_names_privet:
+        path = {
+            **self.templates_url_names_public,
+            **self.templates_url_names_privet
+        }
+        for address in path:
             with self.subTest(address=address):
                 response = self.authorized_client.get(address)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
