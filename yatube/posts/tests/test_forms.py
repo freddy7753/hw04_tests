@@ -1,7 +1,7 @@
 # import shutil
-import tempfile
+# import tempfile
 
-from django.conf import settings
+# from django.conf import settings
 # from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, Client
 from django.urls import reverse
