@@ -1,10 +1,16 @@
 from django import forms
+from django.core.cache import cache
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from ..models import Post, Group, User
+from ..models import Post, Group, User, Follow
 
 NUMBER_OF_POSTS: int = 1
+NEW_POSTS: int = 13
+POSTS_ON_FIRST_PAGE: int = 10
+POSTS_ON_SECOND_PAGE: int = 3
+FIRST_PAGE: int = 1
+SECOND_PAGE: int = 2
 
 
 class PostPagesTests(TestCase):
@@ -21,7 +27,6 @@ class PostPagesTests(TestCase):
             text='Test post',
             author=cls.user,
             group=cls.group
-
         )
         cls.index = reverse('posts:index')
         cls.group_path = reverse(
@@ -52,6 +57,21 @@ class PostPagesTests(TestCase):
     def setUp(self):
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        cache.clear()
+
+    def test_index_cache(self):
+        """Проверка кеша главной страницы"""
+        response = self.authorized_client.get(reverse('posts:index'))
+        content1 = response.content
+        Post.objects.all().delete()
+        response2 = self.authorized_client.get(reverse('posts:index'))
+        content2 = response2.content
+        self.assertEqual(content1, content2)
+        """Очищаем кеш и проверяем на изменение ответа"""
+        cache.clear()
+        response3 = self.authorized_client.get(reverse('posts:index'))
+        content3 = response3.content
+        self.assertNotEqual(content2, content3)
 
     def test_pages_uses_correct_template(self):
         """URL адрес использует свой шаблон"""
@@ -126,13 +146,6 @@ class PostPagesTests(TestCase):
                 )
 
 
-NEW_POSTS: int = 13
-POSTS_ON_FIRST_PAGE: int = 10
-POSTS_ON_SECOND_PAGE: int = 3
-FIRST_PAGE: int = 1
-SECOND_PAGE: int = 2
-
-
 class PaginatorViewsTest(TestCase):
 
     def setUp(self):
@@ -180,3 +193,81 @@ class PaginatorViewsTest(TestCase):
                     self.assertEqual(len(
                         response.context['page_obj']), posts
                     )
+
+
+class ViewFollowTests(TestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.user = User.objects.create_user(username='user')
+        cls.user2 = User.objects.create_user(username='user2')
+        cls.user3 = User.objects.create_user(username='user3')
+
+    def setUp(self):
+        self.authorized_client1 = Client()
+        self.authorized_client1.force_login(self.user)
+        self.authorized_client2 = Client()
+        self.authorized_client2.force_login(self.user2)
+        self.following_client = Client()
+        self.following_client.force_login(self.user3)
+        cache.clear()
+
+    def test_authorized_client_can_subscribe_un(self):
+        """Авторизованный пользователь может подписаться и отписаться"""
+        follow_count = Follow.objects.count()
+        response = self.authorized_client1.get(
+            reverse(
+                'posts:profile_follow',
+                kwargs={'username': self.user3}
+            )
+        )
+        self.assertRedirects(
+            response, reverse(
+                'posts:profile', kwargs={'username': self.user3}
+            )
+        )
+        self.assertEqual(Follow.objects.count(), follow_count + NUMBER_OF_POSTS)
+        self.assertTrue(
+            Follow.objects.filter(
+                user=self.user,
+                author=self.user3
+            ).exists()
+        )
+        response2 = self.authorized_client1.get(
+            reverse(
+                'posts:profile_unfollow',
+                kwargs={'username': self.user3}
+            )
+        )
+        self.assertEqual(Follow.objects.count(), follow_count)
+        self.assertRedirects(
+            response2, reverse(
+                'posts:profile', kwargs={'username': self.user3}
+            )
+        )
+
+    def test_following_post_in_follower_index_context(self):
+        """Новая запись пользователя появляется в ленте подписчика и
+        не появляется в ленте других"""
+        post = Post.objects.create(
+            text='Test post',
+            author=self.user3
+        )
+        Follow.objects.create(
+            user=self.user,
+            author=self.user3
+        )
+        response = self.authorized_client1.get(
+            reverse(
+                'posts:follow_index'
+            )
+        )
+        response2 = self.authorized_client2.get(
+            reverse(
+                'posts:follow_index'
+            )
+        )
+        self.assertEqual(response.context['post'].text, post.text)
+        self.assertEqual(response.context['post'].author, post.author)
+        self.assertEqual(response.context['post'].group, None)
+        self.assertNotIn(post, response2.context['page_obj'])

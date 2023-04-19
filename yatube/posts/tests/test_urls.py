@@ -1,5 +1,6 @@
 from http import HTTPStatus
 
+from django.core.cache import cache
 from django.test import Client, TestCase
 
 from ..models import Group, Post, User
@@ -27,13 +28,15 @@ class PostURLTests(TestCase):
         }
         cls.templates_url_names_privet = {
             '/create/': 'posts/create_post.html',
-            f'/posts/{cls.post.id}/edit/': 'posts/create_post.html'
+            f'/posts/{cls.post.id}/edit/': 'posts/create_post.html',
+            '/follow/': 'posts/follow.html'
         }
 
     def setUp(self):
         self.guest_client = Client()
         self.authorized_client = Client()
         self.authorized_client.force_login(self.user)
+        cache.clear()
 
     def test_posts_urls_exists_at_desired_location(self):
         """Проверяем адреса на доступность авторизованным клиентом"""
@@ -72,6 +75,7 @@ class PostURLTests(TestCase):
         """Проверяем на несуществующую страницу"""
         response = self.guest_client.get('/unexisting_page/')
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        self.assertTemplateUsed(response, 'core/404.html')
 
     def test_urls_uses_correct_template(self):
         """Url-адрес использует соответсвующий шаблон"""

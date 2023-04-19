@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 {% block title %}
-  Послeдние обновления на сайте
+  Посты автора
 {% endblock %}
 {% block content %}
     {% include 'posts/includes/switcher.html' %}
   <div class="container py-5">     
-    <h1>Последние обновления на сайте</h1>
+    <h1>Посты автора</h1>
       {% for post in page_obj %}
       {% include 'includes/article.html' with main_cite=True %}
           {% if not forloop.last %}<hr>{% endif %}
@@ -13,4 +13,3 @@
   </div>
   {% include 'posts/includes/paginator.html' %}
 {% endblock %}
-
